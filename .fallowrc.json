@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.39.0/schema.json",
+  "minimumVersion": "3.39.0",
+  "failOnParseError": true,
+  "includeEntryExports": true,
+  "entry": [".github/scripts/preview/check.ts", "scripts/preview-ready.ts"],
+  "ignorePatterns": [".agents/**", "**/.expo/**", ".artifacts/**"],
+  "duplicates": {
+    "minTokens": 40,
+    "minLines": 5,
+    "minOccurrences": 2
+  },
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "error",
+    "unused-dependencies": "error",
+    "unused-dev-dependencies": "error",
+    "unlisted-dependencies": "error",
+    "unresolved-imports": "error",
+    "stale-suppressions": "error",
+    "require-suppression-reason": "error"
+  },
+  "ignoreDependencies": [
+    "@bacons/apple-targets",
+    "@babel/runtime",
+    "@expo/ngrok",
+    "@expo/plist",
+    "expo-dev-client",
+    "expo-system-ui",
+    "expo-updates",
+    "expo-splash-screen",
+    "eslint-import-resolver-typescript"
+  ]
+}

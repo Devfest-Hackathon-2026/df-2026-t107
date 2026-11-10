@@ -1,0 +1,15 @@
+project_id           = "your-billing-enabled-project"
+github_repository_id = "replace-with-gh-api-numeric-id"
+region               = "asia-northeast1"
+name                 = "nuri-staging"
+deploy_application   = false
+# Export TF_VAR_database_password in your shell; never put it in this file.
+# After secrets and the first image exist:
+# deploy_application = true
+# image = "asia-northeast1-docker.pkg.dev/PROJECT/nuri-staging/api@sha256:..."
+# After adding both Google OAuth credential versions to Secret Manager:
+# google_oauth_enabled = true
+# After adding a Resend key version and verifying a sender:
+# email_login_enabled = true
+# email_from = "nuri <login@your-verified-domain.example>"
+# push_notifications_enabled = true

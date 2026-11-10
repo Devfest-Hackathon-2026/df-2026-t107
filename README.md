@@ -1,38 +1,162 @@
-# DevFest Hackathon 2026 提出用リポジトリ
+<p align="center">
+  <img src="apps/mobile/assets/images/icon.png" alt="nuriのロゴ" width="112" />
+</p>
+<h1 align="center">nuri</h1>
+<p align="center"><strong>自分の顔で、手順どおりに。</strong></p>
+<p align="center">🪞 顔に重ねるARガイド　 ·　 📷 写真から顔タイプ診断　 ·　 🎬 動画から手順書</p>
 
-  DevFest Hackathon 2026 のチームの **最終提出用** リポジトリです。提出期限までに、作品のコードと資料をこのリポジトリに置いてください。
+お手本のメイクを見ても、自分の顔ではどこに、どんな形で塗ればよいか迷う。nuriは、メイクを手順ごとのレシピとして選び、インカメラに映る自分の顔へ塗る範囲と色を重ねながら再現するアプリです。写真から顔の特徴を知り、メイク動画から手順書を作って、編集・投稿できます。
 
-  このリポジトリは **公開（public）** です。開催中も、運営・審査員・ほかの参加者が見られます。
+[開発用リポジトリ（nuri）](https://github.com/Kcvl-DfHack26/nuri) · [審査向け Web](https://nuri-staging-v3kjfarita-an.a.run.app/) · [提出手順](docs/submit.md)
 
-  ## はじめに
+対応する nuri のコミットは [`e1f9ea6fb9d80666aa4c7617ad06732ceb42e597`](https://github.com/Kcvl-DfHack26/nuri/commit/e1f9ea6fb9d80666aa4c7617ad06732ceb42e597) です。
 
-  1. GitHub から届いた招待を受け入れてください（招待の期限は 7 日です）
-  2. このリポジトリを clone して、提出物を置いてください
+[🎨 Figma / 実装plan](https://www.figma.com/design/dwoWsLmVBU5c0Hx0vlVWua/?node-id=21-11426) · [📋 要件定義](docs/requirements.md) · [🛠️ セットアップ](docs/setup.md) · [🏗️ 構成仕様](docs/architecture.md)
 
-  招待の期限が切れたときや、メンバーが変わったときは、運営に連絡してください。
+<table>
+  <tr>
+    <th>🔍 メイクを見つける</th>
+    <th>🪞 自分の顔で手順を確認</th>
+    <th>🎬 動画から作った手順を編集</th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/readme/figma-home.png" alt="Figma Plan Aのホーム画面デザイン" width="250" /></td>
+    <td><img src="docs/images/readme/figma-ar.png" alt="Figma Plan AのAR手順ガイドの画面デザイン" width="250" /></td>
+    <td><img src="docs/images/readme/figma-step-editor.png" alt="Figma Plan Aの手順編集画面デザイン" width="250" /></td>
+  </tr>
+</table>
 
-  ## 開発用のリポジトリは別に作ることをおすすめします
+上の画像は**Figmaのデザイン**です。実装のスクリーンショットではなく、画面内の文言・数値・ガイド表現は現在のアプリと異なる場合があります。[画像の出所と参照ノード](docs/images/readme/README.md)
 
-  このリポジトリでは **GitHub Actions と GitHub Pages が使えません**。CI やデプロイ、Pages での公開をしたいときは、チームで開発用のリポジトリを別に作ってください。
+## 💡 体験を支える仕組み
 
-  - 開発用のリポジトリは、チームのメンバーのアカウントや、チームで作った Organization に作ってください
-  - 開発はそちらで進めて、提出期限までに最終版のコードと資料をこのリポジトリに push してください
-  - 審査はこのリポジトリの内容で行います。開発用のリポジトリにしかないものは、審査の対象になりません
-  - デプロイした作品の URL があれば、この README に書いてください
+| 利用者の体験                                 | 技術上の仕組み                                                                                    | 実装への入口                                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 自分の顔の動きに合わせて、塗る場所を確認する | MediaPipeで端末内の顔の特徴点を追跡し、UV座標で持つ塗布範囲をSkiaで顔へ重ねる                     | [顔追跡](apps/mobile/modules/face-tracker)・[UV描画](apps/mobile/src/components/face-texture.tsx) |
+| 写真から顔の特徴を知る                       | 顔の特徴点から輪郭や目元などの比率を算出し、ルールに基づいて分類。写真の診断処理は端末内で完結    | [診断ロジック](apps/mobile/src/lib/face-diagnosis.ts)                                             |
+| メイク動画を、見返せる手順書にする           | 同意後に動画をVertex AIのGeminiへ送り、手順・時間区間・部位・コスメ候補・塗る範囲の意味情報を取得 | [動画解析](apps/api/src/modules/post-analysis/gemini.ts)                                          |
+| 解析した手順を直してから投稿する             | 意味情報を端末でUVの図形へ変換し、手順や範囲を編集。レシピ・色・形・サムネイルをAPI経由でDBへ保存 | [初期形状](apps/mobile/src/lib/region-shape.ts)・[レシピAPI](apps/api/src/modules/recipes)        |
 
-  ## 秘密情報をコミットしない
+## ✨ できること
 
-  API キー・パスワード・サービスアカウントの鍵などは、**絶対にコミットしないでください**。公開リポジトリなので、push
-  した時点で誰でも見られます。開発用のリポジトリから持ってくるときも、履歴ごと push すると、過去のコミットに含まれる秘密情報も公開されます。
+- 🔖 **レシピを探す・保存する** — 全体メイクや部位からレシピを探し、手順と使うコスメを確認。お気に入りに保存できます。
+- 🪞 **顔に合わせてメイクする** — iOS・Androidの開発ビルドで、顔追跡と塗る範囲の重ね表示を使いながら手順を進められます。
+- 📷 **写真から顔タイプを診断する** — カメラや選んだ写真から顔の特徴を読み取り、診断結果を確認できます。
+- 🎬 **動画からレシピを作る** — 録画した動画や端末の動画から手順書を作り、内容を編集して投稿できます。
+- 🔐 **Googleでログインする** — Better Authで認証とセッションを管理し、投稿やお気に入りなどをアカウントに紐付けます。
+- 👤 **プロフィール写真を変更する** — 写真を選んで端末上で確認し、「保存する」を押したときにだけ送信します。
 
-  - 秘密情報は `.env` や `.dev.vars` などに書き、コミットしない（`.gitignore` に入れてあります）
-  - 誤って push したら、すぐにキー（鍵）を無効にして作り直し、運営に連絡してください。履歴から消すだけでは不十分です
-  - GitHub の push protection が、よく知られた形式のキーの push を止めることがあります。止められたら、そのキーをコミットから外してください
+動画から手順ごとの色を推定し、編集画面のパレットで調整できます。塗る範囲の初期形状は、解析が返した部位と範囲を基に端末で作ります。SNSのURL取り込みは準備中です。外部の投稿は取得しません。メールログインは[送信ドメインを用意してから提供](https://github.com/Kcvl-DfHack26/nuri/issues/177)する予定です。
 
-  ## 提出
+📱 **主要機能の確認はiOS・AndroidのDevelopment Buildで。** WebにもAPIと連動したレシピ閲覧などはありますが、顔追跡AR・写真診断を含む一連の体験はネイティブ版で確認します。[端末で動かす手順](docs/setup.md)
 
-  提出の方法と締切は、運営からの案内に従ってください。提出期限を過ぎると、このリポジトリは読み取り専用になり、push できなくなります。
+## 🧰 技術スタック
 
-  ## ライセンス
+<table>
+  <tr>
+    <td align="center" width="120"><img src="docs/images/readme/logo-expo.svg" alt="Expoのロゴ" width="56" /><br /><strong>Expo</strong></td>
+    <td align="center" width="120"><img src="docs/images/readme/logo-react.svg" alt="React Nativeのロゴ" width="56" /><br /><strong>React Native</strong></td>
+    <td align="center" width="120"><img src="docs/images/readme/logo-hono.svg" alt="Honoのロゴ" width="56" /><br /><strong>Hono</strong></td>
+    <td align="center" width="120"><img src="docs/images/readme/logo-vertex.svg" alt="Vertex AIのロゴ" width="56" /><br /><strong>Vertex AI</strong></td>
+    <td align="center" width="120"><img src="docs/images/readme/logo-drizzle.svg" alt="Drizzle ORMのロゴ" width="56" /><br /><strong>Drizzle ORM</strong></td>
+    <td align="center" width="120"><img src="docs/images/readme/logo-tofu.svg" alt="OpenTofuのロゴ" width="56" /><br /><strong>OpenTofu</strong></td>
+  </tr>
+</table>
 
-  [MIT License](LICENSE) です。ほかのライセンスにしたいときは、LICENSE を書き換えてください。
+TypeScriptを中心に、端末内の顔処理とGoogle Cloud上の動画解析・データ管理を組み合わせています。依存バージョンは各workspaceの `package.json` と [`bun.lock`](bun.lock)で管理します。
+
+| 領域            | 採用技術                                                              | 役割                                                                 |
+| --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| アプリ・Web     | Expo SDK 58、React Native 0.88、Expo Router                           | iOS・Androidと、ブラウザで確認するExpo Web                           |
+| UI・データ取得  | Expo UI、Uniwind、TanStack Query                                      | 画面部品、スタイル、サーバーデータのキャッシュ                       |
+| 顔追跡・AR      | MediaPipe Face Landmarker、React Native Skia                          | 端末内の特徴点検出、UVメッシュへの描画                               |
+| 動画解析        | Vertex AI、Gemini 3.8 Flash、Google Gen AI SDK                        | 手順と塗布範囲の意味情報の抽出、コスメ候補の検索確認                 |
+| API・入力検証   | Hono、Hono Client、Zod、Node.js                                       | 型を共有するAPI、入力検証、認可                                      |
+| 認証・DB        | Better Auth、Drizzle ORM、Cloud SQL / PostgreSQL                      | ユーザー・セッション・レシピ・手順・投稿サムネイルの保存             |
+| 画像ストレージ  | Cloud Storage、Floci（ローカル）                                      | seed画像とプロフィール写真を非公開バケットに保存し、Hono APIで配信   |
+| 実行・配信基盤  | Cloud Run、Artifact Registry、Secret Manager                          | APIとWebの実行、コンテナ配信、秘密情報の注入                         |
+| インフラ・CI/CD | OpenTofu、GitHub Actions、WIF、Expo EAS                               | リソース定義、検査、キーレス認証、ネイティブビルドとUpdateの配布設定 |
+| 開発・検証      | Bun workspaces、Turborepo、Docker Compose、Bun test、Jest、Playwright | 開発環境、依存管理、単体・統合・Webの検証                            |
+
+## 🏗️ アーキテクチャ
+
+![nuriの実行構成。端末内の顔処理、Cloud Run内のHono・Better Auth・Drizzle・Expo Webと、Google Cloudの各サービスの関係](docs/images/readme/architecture-runtime.png)
+
+ライブ顔追跡・AR描画・写真診断は端末内で処理します。録画から手順を作る場合は、同意後にAPIを経由してGeminiへ送り、端末で手順・色・塗る範囲を編集します。Cloud SQLはレシピや投稿のサムネイルを、非公開のCloud Storageは見本画像とプロフィール写真を保存します。画像はHono APIを経由して配信します。
+
+![nuriの開発と配信。GitHub Actionsから共有stagingまでの配信順、OpenTofuの管理範囲、ローカル開発・PRプレビュー・ネイティブ版の経路](docs/images/readme/architecture-delivery.png)
+
+共有stagingでは、Actionsが検証済みのコミットからイメージを作り、DBマイグレーションと候補リビジョンの確認を終えてから公開先を切り替えます。PRプレビューはPRごとに分離します。検証用のAndroid APKとiOS SimulatorアプリはGitHub Releasesから配布します。
+
+図の根拠と確認した稼働範囲は[構成図の出典](docs/images/readme/README.md#構成図)を参照してください。実行・配信の詳細は[アーキテクチャ](docs/architecture.md)にまとめています。
+
+## 🚀 開発を始める
+
+[Expo + Hono + OpenTofu starter](https://github.com/ReoHakase/expo-hono-opentofu-starter)を土台にしています。初期設定、環境変数、Google Cloud・GitHub・EASの準備は[セットアップ手順](docs/setup.md)を参照してください。
+
+ローカルサーバーはDocker Composeで起動します。ホストにGit、Docker Engine + Compose v2、Bun、Node.js 26（固定版は `.node-version`）、Portless 0.16.0を用意します。WindowsではWSL2のLinuxファイルシステムで作業し、Docker DesktopのWSL integrationを有効にします。
+
+```sh
+bun install --global portless@0.16.0
+sh scripts/worktree-init.sh
+# ホストで一度だけ。既存のHTTPS/443 proxyは再利用する
+portless proxy start --https --port 443
+PORTLESS_HTTPS=1 PORTLESS_PORT=443 portless compose up --build api metro
+```
+
+Composeが依存と未作成の環境ファイルを用意し、FlociのPostgreSQL 17へのmigrationと画像バケットの初期化を済ませてからAPIを起動します。API・MetroのURL、DB、バケットはworktreeごとに分離します。旧ローカルDBのデータは[移行手順](docs/setup.md#旧postgresqlのデータを移す)で引き継げます。サンプルのレシピと画像は起動後に `bun run db:seed` で投入できます。Dev Containerは編集・検査に使い、アプリの起動・停止はホストで行います。
+
+顔追跡などのネイティブ機能には**Development Buildが必要**です。Expo Goは初期のUI確認に限り、ネイティブモジュールを使う機能の確認には使えません。端末接続・ビルド・API接続は[セットアップ手順](docs/setup.md)に従ってください。
+
+終了時は次を実行します。自worktreeのrouteとコンテナだけを終了し、volumeを保持します。
+
+```sh
+sh scripts/services-down.sh
+```
+
+PRプレビューはPRごとのCloud Runと非公開画像バケットを使います。OpenTofuがリソースを管理し、GitHub Actionsが候補の疎通確認と配信を行います。URLはPRコメント、実行結果はActionsで確認できます。[PRプレビュー](docs/preview.md)
+
+## 📂 リポジトリ構成
+
+| 場所                                                                   | 役割                                              |
+| ---------------------------------------------------------------------- | ------------------------------------------------- |
+| [`apps/mobile`](apps/mobile)                                           | Expoアプリ、Web、UI、端末内の顔処理・AR・投稿編集 |
+| [`apps/mobile/modules/face-tracker`](apps/mobile/modules/face-tracker) | iOS・AndroidのMediaPipe連携                       |
+| [`apps/api`](apps/api)                                                 | Hono、認証・認可、DB、動画解析、Expo Webの配信    |
+| [`apps/emulate`](apps/emulate)                                         | 開発用のGoogle・Resendエミュレーター              |
+| [`packages/shared`](packages/shared)                                   | 共有Zodスキーマと純粋な処理                       |
+| [`infra`](infra)                                                       | OpenTofuによるGoogle Cloudリソースの定義          |
+| [`.github/workflows`](.github/workflows)                               | 品質検査、PRプレビュー、API・Webの配信            |
+| [`apps/mobile/.eas/workflows`](apps/mobile/.eas/workflows)             | 開発ビルドとネイティブアプリの配信設定            |
+| [`.devcontainer`](.devcontainer)・[`compose.yaml`](compose.yaml)       | コンテナの編集・検査環境とローカルサーバー        |
+| [`docs`](docs)                                                         | 製品・構成・認証・開発運用の文書                  |
+
+## 🧪 検証とよく使うコマンド
+
+ホストにBun 1.4.4を用意して `bun install --frozen-lockfile && bun run setup` を実行すると、以下の短縮コマンドを使えます。Composeを操作するコマンドはホストで実行してください。
+
+| コマンド                                        | 内容                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `bun run setup`                                 | worktree設定と未作成のアプリenvを生成                            |
+| `bun run dev` / `bun run dev:devices`           | DB・API・Metroを起動 / Simulator・Emulator用に起動               |
+| `bun run check`                                 | 整形、型付きlint、型検査、Bun/Jestテスト、未使用・重複コード検査 |
+| `bun run test:integration`                      | 実PostgreSQLとFlociを使うAPI統合テスト                           |
+| `bun run test:e2e`                              | ChromiumのWeb E2E（要ローカルPostgreSQLとFloci）                 |
+| `bun run db:generate` / `bun run db:migrate`    | migration生成 / 適用                                             |
+| `bun run db:seed`                               | ローカルのサンプルレシピと画像を投入                             |
+| `bun run doctor` / `bun run export:mobile`      | Expoの互換性確認 / iOS・Androidのbundle生成                      |
+| `bun run build:api`                             | Node.js向けAPI build                                             |
+| `bun run services:up` / `bun run services:down` | DB・API・Metroをバックグラウンドで起動 / 停止                    |
+
+通常のCIにGoogle CloudやExpoのsecretは不要です。実際の動画解析やクラウド配信には対応する環境設定が必要です。検証の分担と実機確認は[テスト方針](docs/testing.md)を参照してください。
+
+## 📚 詳細ドキュメント
+
+- 製品・デザイン：[要件定義](docs/requirements.md)、[UI方針](docs/ui.md)、[作成時のアプリ概要](docs/overview.md)
+- 構成・運用：[アーキテクチャ](docs/architecture.md)、[認証](docs/auth.md)、[PRプレビュー](docs/preview.md)
+- 開発・検証：[セットアップ](docs/setup.md)、[テストと実機チェック](docs/testing.md)、[エージェントの作業規約](AGENTS.md)
+- [Expoプロジェクト](https://expo.dev/accounts/kcvlb4/projects/nuri)
+
+## ライセンス
+
+チームが権利を持つ提出物は [Creative Commons 表示–非営利 4.0 国際（CC BY-NC 4.0）](LICENSE) で提供します。第三者のコード、モデル、素材はそれぞれのライセンスと著作権表示に従います。

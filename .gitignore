@@ -1,7 +1,30 @@
-# 秘密情報（コミットしない）
+node_modules/
+.expo/
+dist/
+coverage/
+.turbo/
+.fallow/
+.DS_Store
+*.log
 .env
 .env.*
 !.env.example
+!**/.env.example
+apps/mobile/ios/
+apps/mobile/android/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+infra/backend.hcl
+gha-creds-*.json
+.artifacts/
+**/.cache/
+infra/bootstrap/backend.tf
+
+# DevFest 提出用リポジトリの追加除外
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
@@ -12,10 +35,6 @@ service-account*.json
 credentials*.json
 google-services.json
 GoogleService-Info.plist
-
-# 依存関係とビルドの成果物
-node_modules/
-dist/
 build/
 out/
 .next/
@@ -24,11 +43,10 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-
-# OS とエディタ
-.DS_Store
 Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
-*.log
+
+# 追跡対象の EAS ビルド定義
+!/apps/mobile/.eas/build/

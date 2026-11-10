@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "nuri",
+    "slug": "nuri",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "com.kcvl.nuri",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.kcvl.nuri",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "メイクの範囲をあなたの顔に重ねるためにカメラを使います。映像は端末の中だけで処理し、送信しません。",
+        "NSMicrophoneUsageDescription": "メイク動画の音声を録音するためにマイクを使います。"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": true,
+      "package": "com.kcvl.nuri",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      "expo-image",
+      "expo-camera"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "owner": "kcvlb4",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "78c53f89-e14a-4458-b16e-fe31cea9381d"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/78c53f89-e14a-4458-b16e-fe31cea9381d"
+    }
+  }
+}

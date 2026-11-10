@@ -1,0 +1,13 @@
+{
+  "name": "@starter/emulate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../api/.env src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "emulate": "0.13.0"
+  }
+}

@@ -1,0 +1,314 @@
+name: PR Preview
+on:
+  issue_comment:
+    types: [edited]
+  pull_request_target:
+    types: [opened, reopened, synchronize, closed]
+    branches: [main]
+  schedule:
+    - cron: '41 17 * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Open pull request number
+        type: string
+        required: true
+      operation:
+        description: Publish the preview or create its status comment only
+        type: choice
+        options: [publish, comment]
+        default: publish
+permissions:
+  contents: read
+concurrency:
+  group: nuri-preview-cloud
+  queue: max
+jobs:
+  request:
+    name: Prepare Preview Comment
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.operation == 'comment') ||
+      (github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_target' && github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository && github.event.sender.type == 'User') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.sender.type == 'User' &&
+      contains(github.event.comment.body, '<!-- expo-hono-opentofu-starter-preview-request -->'))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      pr: ${{ steps.request.outputs.pr }}
+      sha: ${{ steps.request.outputs.sha }}
+      comment: ${{ steps.request.outputs.comment }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - &install-preview-dependencies
+        name: Install Preview Script Dependencies
+        run: bun install --production --frozen-lockfile --ignore-scripts --filter './'
+      - name: Prepare Preview Comment
+        id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_PR: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr }}
+          REQUEST_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_OPERATION: ${{ inputs.operation }}
+          PREVIEW_CAN_PUBLISH: ${{ github.ref == 'refs/heads/main' && vars.PREVIEW_GCP_ENABLED == 'true' }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_BEFORE: ${{ github.event.changes.body.from }}
+        run: bun .github/scripts/preview/request.ts
+
+  inspect:
+    name: Inspect Preview State
+    needs: request
+    if: >-
+      github.ref == 'refs/heads/main' && needs.request.outputs.pr != '' &&
+      vars.PREVIEW_GCP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: preview
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    outputs:
+      environment: ${{ steps.inspect.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - *install-preview-dependencies
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.PREVIEW_WIF_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - &install-preview-tofu
+        name: Install Verified OpenTofu and Provider
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun .github/scripts/ci/prepare-opentofu.ts infra/preview-pr/.terraform.lock.hcl
+      - name: Select Preview Credentials
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_GCP_PROJECT_ID: ${{ vars.PREVIEW_GCP_PROJECT_ID }}
+          PREVIEW_RUN_TAG_VALUE: ${{ vars.PREVIEW_RUN_TAG_VALUE }}
+          PREVIEW_PR: ${{ needs.request.outputs.pr }}
+          PREVIEW_SHA: ${{ needs.request.outputs.sha }}
+        run: bun .github/scripts/preview/cloud.ts inspect "$PREVIEW_PR" "$PREVIEW_SHA"
+
+  apply:
+    name: Apply Preview Infrastructure
+    needs: [request, inspect]
+    if: >-
+      needs.inspect.outputs.environment == 'preview' ||
+      needs.inspect.outputs.environment == 'preview-create'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ needs.inspect.outputs.environment }}
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    outputs:
+      service: ${{ steps.apply.outputs.service }}
+      origin: ${{ steps.apply.outputs.origin }}
+      region: ${{ steps.apply.outputs.region }}
+      image_bucket: ${{ steps.apply.outputs.image_bucket }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - *install-preview-dependencies
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.PREVIEW_WIF_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - *install-preview-tofu
+      - name: Apply Preview Infrastructure
+        id: apply
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_GCP_PROJECT_ID: ${{ vars.PREVIEW_GCP_PROJECT_ID }}
+          PREVIEW_RUN_TAG_VALUE: ${{ vars.PREVIEW_RUN_TAG_VALUE }}
+          PREVIEW_CLOUD_ENVIRONMENT: ${{ needs.inspect.outputs.environment }}
+          PREVIEW_PR: ${{ needs.request.outputs.pr }}
+          PREVIEW_SHA: ${{ needs.request.outputs.sha }}
+        run: bun .github/scripts/preview/cloud.ts apply "$PREVIEW_PR" "$PREVIEW_SHA"
+
+  publish:
+    name: Publish Preview
+    needs: [request, apply]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: preview
+    env:
+      CLOUDSDK_CORE_PROJECT: ${{ vars.PREVIEW_GCP_PROJECT_ID }}
+      CLOUDSDK_RUN_REGION: ${{ needs.apply.outputs.region }}
+      PREVIEW_SERVICE: ${{ needs.apply.outputs.service }}
+      PREVIEW_ORIGIN: ${{ needs.apply.outputs.origin }}
+      PREVIEW_IMAGE_BUCKET: ${{ needs.apply.outputs.image_bucket }}
+      PREVIEW_PR: ${{ needs.request.outputs.pr }}
+      PREVIEW_SHA: ${{ needs.request.outputs.sha }}
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    outputs:
+      origin: ${{ steps.preview.outputs.origin }}
+      deployed_at: ${{ steps.preview.outputs.deployed_at }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: controller
+          persist-credentials: false
+      # ビルド手順は main のものを使い、PR のコードは Docker に渡す。
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.request.outputs.sha }}
+          path: source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: controller/.bun-version
+      - name: Install Preview Script Dependencies
+        working-directory: controller
+        run: bun install --production --frozen-lockfile --ignore-scripts --filter './'
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.PREVIEW_WIF_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - name: Build and Push Preview Image
+        id: image
+        run: |
+          registry="${CLOUDSDK_RUN_REGION:?}-docker.pkg.dev"
+          package="$registry/${CLOUDSDK_CORE_PROJECT:?}/nuri-preview/pr-${PREVIEW_PR:?}"
+          gcloud auth configure-docker "$registry" --quiet
+          docker buildx build --push --provenance=false --platform linux/amd64 \
+            --metadata-file "$RUNNER_TEMP/preview-image.json" \
+            --target preview --build-context preview-scripts=controller/scripts \
+            --file controller/apps/api/Dockerfile \
+            --tag "$package:gha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" source
+          digest=$(jq -er '."containerimage.digest" | select(test("^sha256:[0-9a-f]{64}$"))' "$RUNNER_TEMP/preview-image.json")
+          printf 'uri=%s@%s\n' "$package" "$digest" >> "$GITHUB_OUTPUT"
+      - name: Deploy Candidate Without Traffic
+        id: candidate
+        env:
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          suffix="gha-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          printf 'revision=%s-%s\n' "${PREVIEW_SERVICE:?}" "$suffix" >> "$GITHUB_OUTPUT"
+          gcloud run deploy "$PREVIEW_SERVICE" --image="${IMAGE:?}" --revision-suffix="$suffix" \
+            --no-traffic --tag=candidate --no-invoker-iam-check \
+            --set-env-vars="PREVIEW_ORIGIN=${PREVIEW_ORIGIN:?},GCS_BUCKET=${PREVIEW_IMAGE_BUCKET:?}" --quiet
+      - name: Verify Candidate
+        working-directory: controller
+        env:
+          REVISION: ${{ steps.candidate.outputs.revision }}
+        run: |
+          candidate_url=$(gcloud run services describe "$PREVIEW_SERVICE" --format=json |
+            jq -er --arg revision "$REVISION" '.status.traffic[] | select(.tag == "candidate" and .revisionName == $revision) | .url')
+          bun .github/scripts/preview/check.ts "$candidate_url" "$PREVIEW_ORIGIN"
+      - name: Promote Verified Candidate
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ steps.candidate.outputs.revision }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PREVIEW_PR" |
+            jq -e --arg sha "$PREVIEW_SHA" --arg repo "$GITHUB_REPOSITORY" \
+              '.state == "open" and .head.sha == $sha and .head.repo.full_name == $repo' > /dev/null
+          gcloud run services update-traffic "$PREVIEW_SERVICE" \
+            --to-revisions="$REVISION=100" --remove-tags=candidate --quiet
+          printf 'origin=%s\ndeployed_at=%s\n' "$PREVIEW_ORIGIN" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Remove Failed Candidate Tag
+        if: (failure() || cancelled()) && steps.candidate.outputs.revision != ''
+        run: gcloud run services update-traffic "$PREVIEW_SERVICE" --remove-tags=candidate --quiet
+
+  cleanup:
+    name: Clean Up Closed Previews
+    if: >-
+      github.ref == 'refs/heads/main' && vars.PREVIEW_GCP_ENABLED == 'true' &&
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request_target' && github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: preview
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - *install-preview-dependencies
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.PREVIEW_WIF_PROVIDER }}
+          service_account: ${{ vars.PREVIEW_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3.0.1
+      - *install-preview-tofu
+      - name: Delete Closed Preview Resources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_GCP_PROJECT_ID: ${{ vars.PREVIEW_GCP_PROJECT_ID }}
+          PREVIEW_PR: ${{ github.event.pull_request.number }}
+        run: bun .github/scripts/preview/cloud.ts cleanup "$PREVIEW_PR"
+
+  report:
+    name: Report Preview Deployment
+    needs: [request, inspect, apply, publish]
+    if: always() && needs.request.outputs.comment != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # 配信対象のPRではなく、信頼済みのワークフローの版でコメントを作る。
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - *install-preview-dependencies
+      - name: Update Preview Comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR: ${{ needs.request.outputs.pr }}
+          PREVIEW_SHA: ${{ needs.request.outputs.sha }}
+          PREVIEW_COMMENT: ${{ needs.request.outputs.comment }}
+          PREVIEW_RESULT: ${{ (needs.inspect.result == 'failure' || needs.apply.result == 'failure') && 'failure' || needs.publish.result }}
+          PREVIEW_ORIGIN: ${{ needs.publish.outputs.origin }}
+          PREVIEW_DEPLOYED_AT: ${{ needs.publish.outputs.deployed_at }}
+        run: bun .github/scripts/preview/report.ts

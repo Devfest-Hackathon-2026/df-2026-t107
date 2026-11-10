@@ -1,0 +1,16 @@
+appId: host.exp.exponent
+---
+- openLink: exp://127.0.0.1:8081?__expo_disable_onboarding=1&__expo_disable_fab=1&__expo_disable_auto_launch=1
+- extendedWaitUntil:
+    visible: 'マイ'
+    timeout: 45000
+- tapOn: 'マイ'
+- assertVisible: 'ゲスト'
+- tapOn: 'プロフィール設定'
+- assertVisible: 'ログインするとプロフィールを変更できます'
+- assertNotVisible: 'アプリの設定'
+- tapOn: 'ログイン'
+# CI has no API configured, so the account screen explains how to enable sign-in.
+- assertVisible: '接続先が未設定です。セットアップ後にログインできます。'
+- tapOn: 'ゲストで参加'
+- assertVisible: 'ログインするとプロフィールを変更できます'

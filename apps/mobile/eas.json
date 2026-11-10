@@ -1,0 +1,83 @@
+{
+  "cli": {
+    "version": ">= 27.4.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "node": "26.13.0",
+      "bun": "1.4.4",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "environment": "development",
+      "android": {
+        "env": {
+          "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-XX:MaxMetaspaceSize=1g -Xmx4g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dorg.gradle.parallel=true -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2",
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a,x86_64"
+        }
+      }
+    },
+    "development-simulator": {
+      "extends": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "node": "26.13.0",
+      "bun": "1.4.4",
+      "distribution": "internal",
+      "channel": "preview",
+      "environment": "preview"
+    },
+    "production": {
+      "node": "26.13.0",
+      "bun": "1.4.4",
+      "autoIncrement": true,
+      "channel": "production",
+      "environment": "production"
+    },
+    "simulator": {
+      "extends": "preview",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "staging-release": {
+      "extends": "simulator",
+      "env": {
+        "EXPO_NO_DOTENV": "1",
+        "EXPO_PUBLIC_API_URL": "https://nuri-staging-v3kjfarita-an.a.run.app",
+        "NURI_STAGING_RELEASE": "1"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "android": {
+        "env": {
+          "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-XX:MaxMetaspaceSize=1g -Xmx4g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dorg.gradle.parallel=false -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1 -Dorg.gradle.project.kotlin.compiler.execution.strategy=in-process",
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a,x86_64"
+        }
+      }
+    },
+    "staging-ios-personal-team": {
+      "extends": "staging-release",
+      "ios": {
+        "simulator": false,
+        "withoutCredentials": true,
+        "config": "staging-ios-personal-team.yml",
+        "applicationArchivePath": "ios/build/Build/Products/Release-iphoneos/nuri.app",
+        "env": {
+          "NURI_IOS_PERSONAL_TEAM_RELEASE": "1"
+        }
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
